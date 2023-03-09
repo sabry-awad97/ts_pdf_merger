@@ -1,6 +1,7 @@
 import { PDFDocument } from 'pdf-lib';
 import { Readable } from 'stream';
 import { promises as fs, createReadStream } from 'fs';
+import pLimit from 'p-limit';
 
 interface PdfFile {
   filename: string;
@@ -59,10 +60,11 @@ async function mergePdfFilesInDirectory() {
   try {
     const files = await fs.readdir(process.cwd());
     const pdfFiles = files.filter(filename => filename.endsWith('.pdf'));
+    const limit = pLimit(5); // Limit to 5 concurrent PDF files being processed
     await Promise.all(
       pdfFiles.map(async filename => {
         const stream = createReadStream(filename);
-        await pdfMerger.loadPdfFile(filename, stream);
+        await limit(() => pdfMerger.loadPdfFile(filename, stream));
       })
     );
     await pdfMerger.mergePdfFiles('merged-pdfs.pdf');

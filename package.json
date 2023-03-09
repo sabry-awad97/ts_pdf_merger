@@ -1,10 +1,15 @@
 {
   "dependencies": {
     "@types/node": "^18.15.0",
+    "p-limit": "^4.0.0",
     "pdf-lib": "^1.17.1"
   },
+  "type": "module",
   "name": "pdf-merger",
   "version": "1.0.0",
   "main": "index.js",
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "start": "tsc && node dist/index.js"
+  }
 }
