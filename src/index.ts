@@ -1,5 +1,6 @@
 import { PDFDocument } from 'pdf-lib';
-import { promises as fs } from 'fs';
+import { Readable } from 'stream';
+import { promises as fs, createReadStream } from 'fs';
 
 interface PdfFile {
   filename: string;
@@ -9,21 +10,16 @@ interface PdfFile {
 class PdfMerger {
   private pdfFiles: PdfFile[] = [];
 
-  public async loadPdfFiles(directoryPath: string): Promise<void> {
+  public async loadPdfFile(filename: string, stream: Readable): Promise<void> {
     try {
-      const filenames = await fs.readdir(directoryPath);
-      const pdfFilenames = filenames.filter(filename =>
-        filename.endsWith('.pdf')
-      );
-      const pdfFiles: PdfFile[] = await Promise.all(
-        pdfFilenames.map(async filename => {
-          const content = await fs.readFile(`${directoryPath}/${filename}`);
-          return { filename, content };
-        })
-      );
-      this.pdfFiles = pdfFiles;
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+      const content = Buffer.concat(chunks);
+      this.pdfFiles.push({ filename, content });
     } catch (error: any) {
-      console.error(`Error loading PDF files: ${error.message}`);
+      console.error(`Error loading PDF file ${filename}: ${error.message}`);
       throw error;
     }
   }
@@ -61,7 +57,14 @@ class PdfMerger {
 async function mergePdfFilesInDirectory() {
   const pdfMerger = new PdfMerger();
   try {
-    await pdfMerger.loadPdfFiles(process.cwd());
+    const files = await fs.readdir(process.cwd());
+    const pdfFiles = files.filter(filename => filename.endsWith('.pdf'));
+    await Promise.all(
+      pdfFiles.map(async filename => {
+        const stream = createReadStream(filename);
+        await pdfMerger.loadPdfFile(filename, stream);
+      })
+    );
     await pdfMerger.mergePdfFiles('merged-pdfs.pdf');
   } catch (error: any) {
     console.error(
